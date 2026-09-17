@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フォートナイト・スピリット・チェックリスト</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#080d1c;
+  color:#fff;
+  font-family:Arial,"Noto Sans JP",sans-serif;
+}
+.container{
+  width:min(1100px,100%);
+  margin:auto;
+  padding:18px 12px 40px;
+}
+h1{
+  margin:0 0 12px;
+  text-align:center;
+  font-size:clamp(22px,4vw,34px);
+  text-shadow:0 3px 8px #000;
+}
+.topbar{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+button{
+  border:1px solid #53627f;
+  border-radius:8px;
+  background:#18233b;
+  color:#fff;
+  padding:9px 13px;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:hover{filter:brightness(1.18)}
+button.active{background:#2e6cff;border-color:#8db0ff}
+.counter{
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  margin:8px 0;
+}
+.progress{
+  height:13px;
+  border-radius:99px;
+  background:#202b40;
+  overflow:hidden;
+  margin:0 auto 14px;
+  max-width:800px;
+}
+.progress-bar{
+  height:100%;
+  width:0;
+  background:linear-gradient(90deg,#36a8ff,#7b5cff);
+  transition:width .25s;
+}
+.stage-wrap{
+  width:min(100%,1100px);
+  margin:auto;
+}
+.stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:1/1;
+  background:url("assets/background.jpg") center/100% 100% no-repeat;
+  overflow:hidden;
+  border-radius:12px;
+  box-shadow:0 10px 35px rgba(0,0,0,.45);
+}
+.spirit{
+  position:absolute;
+  left:var(--x);
+  top:var(--y);
+  width:var(--w);
+  transform:translate(-50%,-50%);
+  cursor:pointer;
+  user-select:none;
+  transition:filter .15s,opacity .15s;
+}
+.spirit:hover{filter:brightness(1.15)}
+.spirit img{
+  display:block;
+  width:100%;
+  height:auto;
+  aspect-ratio:1/1;
+  object-fit:contain;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,.65));
+  transform:scale(var(--scale,1));
+  transform-origin:center;
+}
+.spirit:not(.owned) img{filter:grayscale(.85) brightness(.58) drop-shadow(0 3px 4px rgba(0,0,0,.65))}
+.spirit.owned img{filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
+.spirit.hidden{display:none}
+.badge{
+  position:absolute;
+  right:3%;
+  top:3%;
+  width:20%;
+  aspect-ratio:1;
+  border-radius:50%;
+  background:#24d36b;
+  border:2px solid #fff;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  font-size:clamp(9px,1.5vw,16px);
+  font-weight:bold;
+  box-shadow:0 2px 6px #000;
+}
+.spirit.owned .badge{display:flex}
+#completion{
+  display:none;
+  position:fixed;
+  inset:0;
+  z-index:20;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.72);
+}
+#completion.show{display:flex}
+.complete-box{
+  width:min(90%,430px);
+  padding:28px;
+  text-align:center;
+  border:2px solid #fff;
+  border-radius:18px;
+  background:#17223a;
+  box-shadow:0 15px 50px #000;
+}
+.complete-box h2{margin-top:0;font-size:30px}
+.note{
+  text-align:center;
+  opacity:.7;
+  font-size:12px;
+  margin-top:10px;
+}
+@media(max-width:600px){
+  .container{padding:10px 6px 25px}
+  button{padding:8px 10px;font-size:12px}
+  .counter{font-size:17px}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>フォートナイト・スピリット・チェックリスト</h1>
+
+  <div class="topbar" id="categoryButtons">
+    <button data-category="new" class="active">新種</button>
+    <button data-category="bounty">バウンティハンター</button>
+    <button data-category="all">全種</button>
+  </div>
+
+  <div class="counter" id="counter">0 / 20</div>
+  <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+
+  <div class="topbar">
+    <button data-filter="all" class="active">すべて</button>
+    <button data-filter="missing">未取得</button>
+    <button data-filter="owned">取得済み</button>
+    <button id="saveBtn">画像保存</button>
+    <button id="resetBtn">すべて解除</button>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage"></div>
+  </div>
+  <div class="note">精霊をクリックすると取得済みになります。取得状況はこのブラウザに保存されます。</div>
+</div>
+
+<div id="completion">
+  <div class="complete-box">
+    <h2>🎉 COMPLETE! 🎉</h2>
+    <p id="completeText"></p>
+    <button id="closeCompletion">閉じる</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+/*
+  ===== 精霊の個別配置 =====
+  x = 横位置、y = 縦位置、w = 大きさ
+  すべて「%」なので、画面サイズが変わっても配置比率を維持します。
+  個別に動かしたい場合は、この表の x / y / w を変更してください。
+*/
+
+const layouts = {
+  new: [
+    [10,23,16.5],[30,23,16.5],[50,23,16.5],[70,23,16.5],[90,23,16.5],
+    [10,39,16.5],[30,39,16.5],[50,39,16.5],[70,39,16.5],[90,39,16.5],
+    [10,55,16.5],[30,55,16.5],[50,55,16.5],[70,55,16.5],[90,55,16.5],
+    [10,71,16.5],[30,71,16.5],[50,71,16.5],[70,71,16.5],[90,71,16.5]
+  ],
+  bounty: [
+    [9,24,15.5],[27,24,15.5],[45,24,15.5],[63,24,15.5],[81,24,15.5],
+    [9,43,15.5],[27,43,15.5],[45,43,15.5],[63,43,15.5],[81,43,15.5],
+    [9,61,15.5],[27,61,15.5],[45,61,15.5],[63,61,15.5],[81,61,15.5],
+    [9,79,15.5],[27,79,15.5],[45,79,15.5],[63,79,15.5],[81,79,15.5]
+  ]
+};
+
+/* 全種画面は40体を20体ずつ上下に並べます */
+const allLayout = [
+  ...layouts.new.map(([x,y,w]) => [x,y*.49,w*.88]),
+  ...layouts.bounty.map(([x,y,w]) => [x,49+y*.49,w*.82])
+];
+
+const stage = document.getElementById("stage");
+const counter = document.getElementById("counter");
+const progressBar = document.getElementById("progressBar");
+const complete = document.getElementById("completion");
+const completeText = document.getElementById("completeText");
+
+let category = "new";
+let filter = "all";
+let owned = JSON.parse(localStorage.getItem("fortniteSpiritOwned") || "{}");
+
+function idsFor(cat){
+  if(cat==="new") return Array.from({length:20},(_,i)=>`new${String(i+1).padStart(2,"0")}`);
+  if(cat==="bounty") return Array.from({length:20},(_,i)=>`bounty${String(i+1).padStart(2,"0")}`);
+  return [
+    ...Array.from({length:20},(_,i)=>`new${String(i+1).padStart(2,"0")}`),
+    ...Array.from({length:20},(_,i)=>`bounty${String(i+1).padStart(2,"0")}`)
+  ];
+}
+
+function makeSpirit(id,index,cat){
+  const p = cat==="all" ? allLayout[index] : layouts[cat][index];
+  const el = document.createElement("article");
+  el.className = "spirit";
+  el.dataset.id = id;
+  el.style.setProperty("--x",p[0]+"%");
+  el.style.setProperty("--y",p[1]+"%");
+  el.style.setProperty("--w",p[2]+"%");
+  el.innerHTML = `
+    <img src="assets/${id}.png" alt="${id}" draggable="false">
+    <span class="badge">✓</span>
+  `;
+  el.addEventListener("click",()=>{
+    owned[id] = !owned[id];
+    localStorage.setItem("fortniteSpiritOwned",JSON.stringify(owned));
+    update();
+  });
+  return el;
+}
+
+function buildStage(){
+  stage.innerHTML="";
+  const ids=idsFor(category);
+  ids.forEach((id,i)=>{
+    const group=id.startsWith("new")?"new":"bounty";
+    const groupIndex=Number(id.slice(-2))-1;
+    stage.appendChild(makeSpirit(id, category==="all" ? i : groupIndex, category==="all" ? "all" : group));
+  });
+  normalizeVisibleSizes();
+}
+
+function update(){
+  const ids=idsFor(category);
+  const count=ids.filter(id=>owned[id]).length;
+  counter.textContent=`${count} / ${ids.length}`;
+  progressBar.style.width=(count/ids.length*100)+"%";
+
+  document.querySelectorAll(".spirit").forEach(el=>{
+    const id=el.dataset.id;
+    el.classList.toggle("owned",!!owned[id]);
+    const show =
+      filter==="all" ||
+      (filter==="owned" && !!owned[id]) ||
+      (filter==="missing" && !owned[id]);
+    el.classList.toggle("hidden",!show);
+  });
+
+  document.querySelectorAll("[data-category]").forEach(b=>{
+    b.classList.toggle("active",b.dataset.category===category);
+  });
+  document.querySelectorAll("[data-filter]").forEach(b=>{
+    b.classList.toggle("active",b.dataset.filter===filter);
+  });
+
+  if(count===ids.length){
+    completeText.textContent=`「${category==="new"?"新種":category==="bounty"?"バウンティハンター":"全種"}」をすべて取得しました！`;
+    complete.classList.add("show");
+  }
+}
+
+document.querySelectorAll("[data-category]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    category=btn.dataset.category;
+    buildStage();
+    update();
+  });
+});
+
+document.querySelectorAll("[data-filter]").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    filter=btn.dataset.filter;
+    update();
+  });
+});
+
+document.getElementById("closeCompletion").addEventListener("click",()=>{
+  complete.classList.remove("show");
+});
+
+complete.addEventListener("click",e=>{
+  if(e.target===complete) complete.classList.remove("show");
+});
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  if(!confirm("このブラウザに保存されている取得状況をすべて解除しますか？")) return;
+  owned={};
+  localStorage.removeItem("fortniteSpiritOwned");
+  update();
+});
+
+document.getElementById("saveBtn").addEventListener("click",async()=>{
+  const oldFilter=filter;
+  filter="all";
+  update();
+
+  await new Promise(r=>setTimeout(r,100));
+  const canvas=await html2canvas(stage,{
+    backgroundColor:null,
+    useCORS:true,
+    scale:2
+  });
+  const a=document.createElement("a");
+  a.download=`fortnite-spirit-${category}.png`;
+  a.href=canvas.toDataURL("image/png");
+  a.click();
+
+  filter=oldFilter;
+  update();
+});
+
+/*
+  透明PNGの「実際に見えている部分」を調べ、
+  キャンバス内の余白が違う精霊でも見た目の大きさを近づけます。
+  元画像ファイル自体は変更しません。
+*/
+function normalizeVisibleSizes(){
+  const imgs=[...stage.querySelectorAll("img")];
+  if(!imgs.length)return;
+
+  let loaded=0;
+  const run=()=>{
+    loaded++;
+    if(loaded<imgs.length)return;
+
+    const visibleHeights=[];
+    imgs.forEach(img=>{
+      try{
+        const c=document.createElement("canvas");
+        c.width=img.naturalWidth;
+        c.height=img.naturalHeight;
+        const ctx=c.getContext("2d",{willReadFrequently:true});
+        ctx.drawImage(img,0,0);
+        const data=ctx.getImageData(0,0,c.width,c.height).data;
+        let top=c.height,bottom=-1;
+        for(let y=0;y<c.height;y++){
+          for(let x=0;x<c.width;x++){
+            if(data[(y*c.width+x)*4+3]>8){
+              top=Math.min(top,y);
+              bottom=Math.max(bottom,y);
+            }
+          }
+        }
+        visibleHeights.push(bottom>=top ? bottom-top+1 : c.height);
+      }catch(e){
+        visibleHeights.push(img.naturalHeight||1);
+      }
+    });
+
+    const sorted=[...visibleHeights].sort((a,b)=>a-b);
+    const target=sorted[Math.floor(sorted.length*.6)]||1;
+
+    imgs.forEach((img,i)=>{
+      const scale=Math.max(.55,Math.min(1.75,target/visibleHeights[i]));
+      img.style.setProperty("--scale",scale.toFixed(3));
+    });
+  };
+
+  imgs.forEach(img=>{
+    if(img.complete && img.naturalWidth) run();
+    else img.addEventListener("load",run,{once:true});
+    img.addEventListener("error",run,{once:true});
+  });
+}
+
+window.addEventListener("resize",normalizeVisibleSizes);
+
+buildStage();
+update();
+</script>
+</body>
+</html>
