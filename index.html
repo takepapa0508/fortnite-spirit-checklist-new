@@ -63,7 +63,7 @@ button.active{background:#2e6cff;border-color:#8db0ff}
   transition:width .25s;
 }
 .stage-wrap{
-  width:min(100%,1100px);
+  width:min(100%,1080px);
   margin:auto;
 }
 .stage{
@@ -181,7 +181,6 @@ button.active{background:#2e6cff;border-color:#8db0ff}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 /*
   ===== 精霊の個別配置 =====
@@ -341,23 +340,92 @@ document.getElementById("resetBtn").addEventListener("click",()=>{
 
 document.getElementById("saveBtn").addEventListener("click",async()=>{
   /*
-    「画像保存」は、表示中のstageそのものを直接キャプチャします。
-    クローン・再配置・再計算は一切しません。
-    そのため、選択画面と保存画像で精霊の大きさ・位置が変わりません。
-    scale:1 にして、CSS上の表示サイズをそのまま1:1で保存します。
+    画像保存はhtml2canvasを使わず、画面のstageを構成している
+    「背景＋表示中の精霊＋✓」を同じ座標・同じサイズでCanvasへ描画します。
+    これによりブラウザのズームやhtml2canvasの再レイアウトによる
+    「保存すると精霊だけ大きくなる」「黒い帯が出る」を防ぎます。
   */
   update();
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
   try{
-    const canvas=await html2canvas(stage,{
-      backgroundColor:null,
-      useCORS:true,
-      allowTaint:false,
-      scale:1,
-      scrollX:0,
-      scrollY:0
-    });
+    const stageRect=stage.getBoundingClientRect();
+    const cssW=stageRect.width;
+    const cssH=stageRect.height;
+
+    const canvas=document.createElement("canvas");
+    canvas.width=Math.round(cssW);
+    canvas.height=Math.round(cssH);
+
+    const ctx=canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // 背景
+    const bg=new Image();
+    bg.src="assets/background.jpg";
+    await bg.decode();
+    ctx.drawImage(bg,0,0,canvas.width,canvas.height);
+
+    const sx=canvas.width/cssW;
+    const sy=canvas.height/cssH;
+
+    // 表示中の精霊だけ、実際の画面上の矩形をそのまま描画
+    const spirits=[...stage.querySelectorAll(".spirit:not(.hidden)")];
+
+    for(const el of spirits){
+      const img=el.querySelector("img");
+      if(!img || !img.complete || !img.naturalWidth) continue;
+
+      const r=img.getBoundingClientRect();
+      const x=(r.left-stageRect.left)*sx;
+      const y=(r.top-stageRect.top)*sy;
+      const w=r.width*sx;
+      const h=r.height*sy;
+
+      // 画面と同じドロップシャドウ
+      ctx.save();
+      ctx.shadowColor="rgba(0,0,0,.65)";
+      ctx.shadowBlur=4*sx;
+      ctx.shadowOffsetX=0;
+      ctx.shadowOffsetY=3*sx;
+      ctx.drawImage(img,x,y,w,h);
+      ctx.restore();
+
+      // 取得済み✓も画面上の位置・大きさをそのまま描画
+      if(el.classList.contains("owned")){
+        const badge=el.querySelector(".badge");
+        if(badge){
+          const br=badge.getBoundingClientRect();
+          const bx=(br.left-stageRect.left)*sx;
+          const by=(br.top-stageRect.top)*sy;
+          const bw=br.width*sx;
+          const bh=br.height*sy;
+          const cx=bx+bw/2;
+          const cy=by+bh/2;
+          const rad=Math.min(bw,bh)/2;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx,cy,rad,0,Math.PI*2);
+          ctx.fillStyle="#24d36b";
+          ctx.fill();
+          ctx.lineWidth=2*sx;
+          ctx.strokeStyle="#fff";
+          ctx.stroke();
+
+          ctx.strokeStyle="#fff";
+          ctx.lineWidth=Math.max(1.5,2.2*sx);
+          ctx.lineCap="round";
+          ctx.lineJoin="round";
+          ctx.beginPath();
+          ctx.moveTo(cx-rad*.34,cy);
+          ctx.lineTo(cx-rad*.08,cy+rad*.28);
+          ctx.lineTo(cx+rad*.38,cy-rad*.30);
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
 
     const a=document.createElement("a");
     a.download=`fortnite-spirit-${category}-${filter}.png`;
