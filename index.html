@@ -341,46 +341,23 @@ document.getElementById("resetBtn").addEventListener("click",()=>{
 
 document.getElementById("saveBtn").addEventListener("click",async()=>{
   /*
-    画面に表示されているstageと「同じCSSピクセル寸法」で保存します。
-    scaleは解像度だけを上げるための値で、配置・精霊サイズには影響させません。
-    また、現在のフィルター状態をそのままクローンして保存します。
+    「画像保存」は、表示中のstageそのものを直接キャプチャします。
+    クローン・再配置・再計算は一切しません。
+    そのため、選択画面と保存画像で精霊の大きさ・位置が変わりません。
+    scale:1 にして、CSS上の表示サイズをそのまま1:1で保存します。
   */
   update();
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
   try{
-    const rect=stage.getBoundingClientRect();
-    const cssW=Math.round(rect.width);
-    const cssH=Math.round(rect.height);
-
-    const clone=stage.cloneNode(true);
-    clone.style.width=cssW+"px";
-    clone.style.height=cssH+"px";
-    clone.style.maxWidth="none";
-    clone.style.minWidth="0";
-    clone.style.position="fixed";
-    clone.style.left="-100000px";
-    clone.style.top="0";
-    clone.style.margin="0";
-    clone.style.transform="none";
-    clone.style.boxShadow="none";
-
-    document.body.appendChild(clone);
-
-    const canvas=await html2canvas(clone,{
+    const canvas=await html2canvas(stage,{
       backgroundColor:null,
       useCORS:true,
       allowTaint:false,
-      scale:2,
-      width:cssW,
-      height:cssH,
-      windowWidth:Math.max(document.documentElement.clientWidth,cssW),
-      windowHeight:Math.max(document.documentElement.clientHeight,cssH),
+      scale:1,
       scrollX:0,
       scrollY:0
     });
-
-    clone.remove();
 
     const a=document.createElement("a");
     a.download=`fortnite-spirit-${category}-${filter}.png`;
@@ -389,7 +366,6 @@ document.getElementById("saveBtn").addEventListener("click",async()=>{
     a.click();
     a.remove();
   }catch(e){
-    document.querySelectorAll("body > .stage").forEach(x=>x.remove());
     alert("画像の保存に失敗しました");
     console.error(e);
   }
