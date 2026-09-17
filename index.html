@@ -80,6 +80,7 @@ button.active{background:#2e6cff;border-color:#8db0ff}
   left:var(--x);
   top:var(--y);
   width:var(--w);
+  height:var(--w);
   transform:translate(-50%,-50%);
   cursor:pointer;
   user-select:none;
@@ -89,14 +90,10 @@ button.active{background:#2e6cff;border-color:#8db0ff}
 .spirit img{
   display:block;
   width:100%;
-  height:auto;
-  aspect-ratio:1/1;
+  height:100%;
   object-fit:contain;
   filter:drop-shadow(0 3px 4px rgba(0,0,0,.65));
-  transform:scale(var(--scale,1));
-  transform-origin:center;
 }
-.spirit img{filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
 .spirit.hidden{display:none}
 .badge{
   position:absolute;
@@ -209,24 +206,31 @@ const layouts = {
   ]
 };
 
-/* 全種は、以前指定した40体の個別配置をそのまま使用します。 */
+/* 全種は、添付画像の配列（6-7-7-7-6-5）を再現します。 */
 const allLayout = [
-  [8,9,14],[24.5,9,14],[41,9,14],[57.5,9,14],[74,9,14],[90,9,14],
-  [8,27,14],[22.5,27,14],[37,27,14],[52,27,14],[67,27,14],[81.5,27,14],[94,27,12],
-  [8,44,14],[22.5,44,14],[37,44,14],[52,44,14],[67,44,14],[81.5,44,14],[94,44,12],
-  [8,61,14],[22.5,61,14],[37,61,14],[52,61,14],[67,61,14],[81.5,61,14],[94,61,12],
-  [8,78,14],[22.5,78,14],[37,78,14],[52,78,14],[67,78,14],[81.5,78,14],[94,78,12],
-  [8,92,14],[24,92,14],[41,92,14],[57.5,92,14],[74,92,14],[90,92,14]
+  /* 1行目：6体 */
+  [7,9,13.5],[22,9,13.5],[37,9,13.5],[52,9,13.5],[67,9,13.5],[82,9,13.5],
+  /* 2行目：7体 */
+  [7,26,12.5],[21.3,26,12.5],[35.6,26,12.5],[49.9,26,12.5],[64.2,26,12.5],[78.5,26,12.5],[92.8,26,12.5],
+  /* 3行目：7体 */
+  [7,43,12.5],[21.3,43,12.5],[35.6,43,12.5],[49.9,43,12.5],[64.2,43,12.5],[78.5,43,12.5],[92.8,43,12.5],
+  /* 4行目：7体 */
+  [7,60,12.5],[21.3,60,12.5],[35.6,60,12.5],[49.9,60,12.5],[64.2,60,12.5],[78.5,60,12.5],[92.8,60,12.5],
+  /* 5行目：6体 */
+  [8,77,13.5],[24.8,77,13.5],[41.6,77,13.5],[58.4,77,13.5],[75.2,77,13.5],[92,77,13.5],
+  /* 6行目：5体 */
+  [14,93,13.5],[32,93,13.5],[50,93,13.5],[68,93,13.5],[86,93,13.5]
 ];
 
 /* 全種の表示順：指定済みの40体の並び */
 const allIds = [
+  /* 画像で指定された40体の配列：左→右、上→下 */
   'bounty16','bounty17','bounty18','bounty19','bounty12','bounty15',
   'new05','new06','new07','new08','bounty03','bounty10','bounty20',
-  'new09','new10','new11','new12','bounty06','bounty05','bounty14',
-  'new13','new14','new15','new16','bounty08','bounty13','bounty04',
-  'new01','new02','new03','new04','bounty02','bounty07','bounty11',
-  'new17','new18','new19','new20','bounty09','bounty01'
+  'new09','new10','new11','new12','bounty05','bounty06','bounty14',
+  'new13','new14','new15','new16','bounty04','bounty08','bounty13',
+  'new01','new02','new03','new04','bounty07','bounty11',
+  'new17','new18','new19','new20','bounty09'
 ];
 
 const stage = document.getElementById("stage");
@@ -273,7 +277,7 @@ function buildStage(){
     const index=category==="all" ? i : Number(id.slice(-2))-1;
     stage.appendChild(makeSpirit(id,index,category==="all"?"all":group));
   });
-  normalizeVisibleSizes();
+  cropTransparentPadding();
 }
 
 function update(){
@@ -357,76 +361,72 @@ document.getElementById("saveBtn").addEventListener("click",async()=>{
 });
 
 /*
-  透明PNGの「実際に見えている部分」を調べ、
-  キャンバス内の余白が違う精霊でも見た目の大きさを近づけます。
-  元画像ファイル自体は変更しません。
+  PNGの透明余白をブラウザ上で自動的に切り抜きます。
+  元のassets画像は変更しません。
+  これで「同じ枠なのに透明余白のせいで小さく見える」問題を防ぎます。
 */
-function normalizeVisibleSizes(){
+function cropTransparentPadding(){
   const imgs=[...stage.querySelectorAll("img")];
-  if(!imgs.length)return;
 
-  let finished=0;
-  const measurements=[];
+  imgs.forEach(img=>{
+    if(img.dataset.cropped==="1") return;
 
-  const measure=img=>{
-    try{
-      const c=document.createElement("canvas");
-      c.width=img.naturalWidth;
-      c.height=img.naturalHeight;
-      if(!c.width||!c.height) return null;
-      const ctx=c.getContext("2d",{willReadFrequently:true});
-      ctx.drawImage(img,0,0);
-      const data=ctx.getImageData(0,0,c.width,c.height).data;
-      let left=c.width,top=c.height,right=-1,bottom=-1;
-      for(let y=0;y<c.height;y++){
-        for(let x=0;x<c.width;x++){
-          if(data[(y*c.width+x)*4+3]>10){
-            if(x<left)left=x;
-            if(x>right)right=x;
-            if(y<top)top=y;
-            if(y>bottom)bottom=y;
+    const crop=()=>{
+      if(img.dataset.cropped==="1" || !img.naturalWidth) return;
+
+      try{
+        const w=img.naturalWidth;
+        const h=img.naturalHeight;
+        const c=document.createElement("canvas");
+        c.width=w;
+        c.height=h;
+        const ctx=c.getContext("2d",{willReadFrequently:true});
+        ctx.drawImage(img,0,0);
+
+        const data=ctx.getImageData(0,0,w,h).data;
+        let left=w, top=h, right=-1, bottom=-1;
+
+        for(let y=0;y<h;y++){
+          for(let x=0;x<w;x++){
+            if(data[(y*w+x)*4+3]>10){
+              if(x<left) left=x;
+              if(x>right) right=x;
+              if(y<top) top=y;
+              if(y>bottom) bottom=y;
+            }
           }
         }
+
+        if(right<left || bottom<top){
+          img.dataset.cropped="1";
+          return;
+        }
+
+        const pad=2;
+        left=Math.max(0,left-pad);
+        top=Math.max(0,top-pad);
+        right=Math.min(w-1,right+pad);
+        bottom=Math.min(h-1,bottom+pad);
+
+        const cw=right-left+1;
+        const ch=bottom-top+1;
+        const out=document.createElement("canvas");
+        out.width=cw;
+        out.height=ch;
+        out.getContext("2d").drawImage(c,left,top,cw,ch,0,0,cw,ch);
+
+        img.src=out.toDataURL("image/png");
+        img.dataset.cropped="1";
+      }catch(e){
+        img.dataset.cropped="1";
       }
-      if(right<left||bottom<top)return null;
-      return {w:right-left+1,h:bottom-top+1};
-    }catch(e){return null;}
-  };
-
-  const finish=()=>{
-    finished++;
-    if(finished!==imgs.length)return;
-
-    const valid=measurements.filter(Boolean);
-    if(!valid.length)return;
-
-    /* 40体の「見えている部分」の大きさを揃える。
-       幅/高さの大きい方を基準にして、極端に小さい画像も拡大します。 */
-    const ratios=valid.map(v=>Math.max(v.w,v.h));
-    const sorted=[...ratios].sort((a,b)=>a-b);
-    const mid=sorted[Math.floor(sorted.length/2)];
-    const target=mid*0.95;
-
-    imgs.forEach((img,i)=>{
-      const m=measurements[i];
-      if(!m)return;
-      const scale=target/Math.max(m.w,m.h);
-      img.style.setProperty("--scale",scale.toFixed(4));
-    });
-  };
-
-  imgs.forEach((img,i)=>{
-    const done=()=>{
-      measurements[i]=measure(img);
-      finish();
     };
-    if(img.complete&&img.naturalWidth) done();
-    else img.addEventListener("load",done,{once:true});
-    img.addEventListener("error",done,{once:true});
+
+    if(img.complete && img.naturalWidth) crop();
+    else img.addEventListener("load",crop,{once:true});
   });
 }
 
-window.addEventListener("resize",normalizeVisibleSizes);
 
 buildStage();
 update();
