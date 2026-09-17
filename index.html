@@ -96,8 +96,7 @@ button.active{background:#2e6cff;border-color:#8db0ff}
   transform:scale(var(--scale,1));
   transform-origin:center;
 }
-.spirit:not(.owned) img{filter:grayscale(.85) brightness(.58) drop-shadow(0 3px 4px rgba(0,0,0,.65))}
-.spirit.owned img{filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
+.spirit img{filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))}
 .spirit.hidden{display:none}
 .badge{
   position:absolute;
@@ -196,23 +195,38 @@ button.active{background:#2e6cff;border-color:#8db0ff}
 
 const layouts = {
   new: [
-    [10,23,16.5],[30,23,16.5],[50,23,16.5],[70,23,16.5],[90,23,16.5],
-    [10,39,16.5],[30,39,16.5],[50,39,16.5],[70,39,16.5],[90,39,16.5],
-    [10,55,16.5],[30,55,16.5],[50,55,16.5],[70,55,16.5],[90,55,16.5],
-    [10,71,16.5],[30,71,16.5],[50,71,16.5],[70,71,16.5],[90,71,16.5]
+    [26,23,16.5],[40.5,23,16.5],[55.5,23,16.5],[70.5,23,16.5],
+    [26,39,16.5],[40.5,39,16.5],[55.5,39,16.5],[70.5,39,16.5],
+    [26,55,16.5],[40.5,55,16.5],[55.5,55,16.5],[70.5,55,16.5],
+    [26,71,16.5],[40.5,71,16.5],[55.5,71,16.5],[70.5,71,16.5],
+    [26,88,16.5],[40.5,88,16.5],[55.5,88,16.5],[70.5,88,16.5]
   ],
   bounty: [
-    [9,24,15.5],[27,24,15.5],[45,24,15.5],[63,24,15.5],[81,24,15.5],
-    [9,43,15.5],[27,43,15.5],[45,43,15.5],[63,43,15.5],[81,43,15.5],
-    [9,61,15.5],[27,61,15.5],[45,61,15.5],[63,61,15.5],[81,61,15.5],
-    [9,79,15.5],[27,79,15.5],[45,79,15.5],[63,79,15.5],[81,79,15.5]
+    [22,24,15.5],[37,24,15.5],[52,24,15.5],[67,24,15.5],[82,24,15.5],
+    [22,43,15.5],[37,43,15.5],[52,43,15.5],[67,43,15.5],[82,43,15.5],
+    [22,61,15.5],[37,61,15.5],[52,61,15.5],[67,61,15.5],[82,61,15.5],
+    [22,79,15.5],[37,79,15.5],[52,79,15.5],[67,79,15.5],[82,79,15.5]
   ]
 };
 
-/* 全種画面は40体を20体ずつ上下に並べます */
+/* 全種は、以前指定した40体の個別配置をそのまま使用します。 */
 const allLayout = [
-  ...layouts.new.map(([x,y,w]) => [x,y*.49,w*.88]),
-  ...layouts.bounty.map(([x,y,w]) => [x,49+y*.49,w*.82])
+  [8,9,14],[24.5,9,14],[41,9,14],[57.5,9,14],[74,9,14],[90,9,14],
+  [8,27,14],[22.5,27,14],[37,27,14],[52,27,14],[67,27,14],[81.5,27,14],[94,27,12],
+  [8,44,14],[22.5,44,14],[37,44,14],[52,44,14],[67,44,14],[81.5,44,14],[94,44,12],
+  [8,61,14],[22.5,61,14],[37,61,14],[52,61,14],[67,61,14],[81.5,61,14],[94,61,12],
+  [8,78,14],[22.5,78,14],[37,78,14],[52,78,14],[67,78,14],[81.5,78,14],[94,78,12],
+  [8,92,14],[24,92,14],[41,92,14],[57.5,92,14],[74,92,14],[90,92,14]
+];
+
+/* 全種の表示順：指定済みの40体の並び */
+const allIds = [
+  'bounty16','bounty17','bounty18','bounty19','bounty12','bounty15',
+  'new05','new06','new07','new08','bounty03','bounty10','bounty20',
+  'new09','new10','new11','new12','bounty06','bounty05','bounty14',
+  'new13','new14','new15','new16','bounty08','bounty13','bounty04',
+  'new01','new02','new03','new04','bounty02','bounty07','bounty11',
+  'new17','new18','new19','new20','bounty09','bounty01'
 ];
 
 const stage = document.getElementById("stage");
@@ -228,10 +242,7 @@ let owned = JSON.parse(localStorage.getItem("fortniteSpiritOwned") || "{}");
 function idsFor(cat){
   if(cat==="new") return Array.from({length:20},(_,i)=>`new${String(i+1).padStart(2,"0")}`);
   if(cat==="bounty") return Array.from({length:20},(_,i)=>`bounty${String(i+1).padStart(2,"0")}`);
-  return [
-    ...Array.from({length:20},(_,i)=>`new${String(i+1).padStart(2,"0")}`),
-    ...Array.from({length:20},(_,i)=>`bounty${String(i+1).padStart(2,"0")}`)
-  ];
+  return allIds;
 }
 
 function makeSpirit(id,index,cat){
@@ -259,8 +270,8 @@ function buildStage(){
   const ids=idsFor(category);
   ids.forEach((id,i)=>{
     const group=id.startsWith("new")?"new":"bounty";
-    const groupIndex=Number(id.slice(-2))-1;
-    stage.appendChild(makeSpirit(id, category==="all" ? i : groupIndex, category==="all" ? "all" : group));
+    const index=category==="all" ? i : Number(id.slice(-2))-1;
+    stage.appendChild(makeSpirit(id,index,category==="all"?"all":group));
   });
   normalizeVisibleSizes();
 }
@@ -325,23 +336,24 @@ document.getElementById("resetBtn").addEventListener("click",()=>{
 });
 
 document.getElementById("saveBtn").addEventListener("click",async()=>{
-  const oldFilter=filter;
-  filter="all";
+  /* 現在選択している表示フィルターの状態でそのまま保存します。 */
   update();
-
-  await new Promise(r=>setTimeout(r,100));
-  const canvas=await html2canvas(stage,{
-    backgroundColor:null,
-    useCORS:true,
-    scale:2
-  });
-  const a=document.createElement("a");
-  a.download=`fortnite-spirit-${category}.png`;
-  a.href=canvas.toDataURL("image/png");
-  a.click();
-
-  filter=oldFilter;
-  update();
+  await new Promise(r=>setTimeout(r,120));
+  try{
+    const canvas=await html2canvas(stage,{
+      backgroundColor:null,
+      useCORS:true,
+      scale:2
+    });
+    const a=document.createElement("a");
+    a.download=`fortnite-spirit-${category}-${filter}.png`;
+    a.href=canvas.toDataURL("image/png");
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }catch(e){
+    alert("画像の保存に失敗しました");
+  }
 });
 
 /*
@@ -353,48 +365,64 @@ function normalizeVisibleSizes(){
   const imgs=[...stage.querySelectorAll("img")];
   if(!imgs.length)return;
 
-  let loaded=0;
-  const run=()=>{
-    loaded++;
-    if(loaded<imgs.length)return;
+  let finished=0;
+  const measurements=[];
 
-    const visibleHeights=[];
-    imgs.forEach(img=>{
-      try{
-        const c=document.createElement("canvas");
-        c.width=img.naturalWidth;
-        c.height=img.naturalHeight;
-        const ctx=c.getContext("2d",{willReadFrequently:true});
-        ctx.drawImage(img,0,0);
-        const data=ctx.getImageData(0,0,c.width,c.height).data;
-        let top=c.height,bottom=-1;
-        for(let y=0;y<c.height;y++){
-          for(let x=0;x<c.width;x++){
-            if(data[(y*c.width+x)*4+3]>8){
-              top=Math.min(top,y);
-              bottom=Math.max(bottom,y);
-            }
+  const measure=img=>{
+    try{
+      const c=document.createElement("canvas");
+      c.width=img.naturalWidth;
+      c.height=img.naturalHeight;
+      if(!c.width||!c.height) return null;
+      const ctx=c.getContext("2d",{willReadFrequently:true});
+      ctx.drawImage(img,0,0);
+      const data=ctx.getImageData(0,0,c.width,c.height).data;
+      let left=c.width,top=c.height,right=-1,bottom=-1;
+      for(let y=0;y<c.height;y++){
+        for(let x=0;x<c.width;x++){
+          if(data[(y*c.width+x)*4+3]>10){
+            if(x<left)left=x;
+            if(x>right)right=x;
+            if(y<top)top=y;
+            if(y>bottom)bottom=y;
           }
         }
-        visibleHeights.push(bottom>=top ? bottom-top+1 : c.height);
-      }catch(e){
-        visibleHeights.push(img.naturalHeight||1);
       }
-    });
+      if(right<left||bottom<top)return null;
+      return {w:right-left+1,h:bottom-top+1};
+    }catch(e){return null;}
+  };
 
-    const sorted=[...visibleHeights].sort((a,b)=>a-b);
-    const target=sorted[Math.floor(sorted.length*.6)]||1;
+  const finish=()=>{
+    finished++;
+    if(finished!==imgs.length)return;
+
+    const valid=measurements.filter(Boolean);
+    if(!valid.length)return;
+
+    /* 40体の「見えている部分」の大きさを揃える。
+       幅/高さの大きい方を基準にして、極端に小さい画像も拡大します。 */
+    const ratios=valid.map(v=>Math.max(v.w,v.h));
+    const sorted=[...ratios].sort((a,b)=>a-b);
+    const mid=sorted[Math.floor(sorted.length/2)];
+    const target=mid*0.95;
 
     imgs.forEach((img,i)=>{
-      const scale=Math.max(.55,Math.min(1.75,target/visibleHeights[i]));
-      img.style.setProperty("--scale",scale.toFixed(3));
+      const m=measurements[i];
+      if(!m)return;
+      const scale=target/Math.max(m.w,m.h);
+      img.style.setProperty("--scale",scale.toFixed(4));
     });
   };
 
-  imgs.forEach(img=>{
-    if(img.complete && img.naturalWidth) run();
-    else img.addEventListener("load",run,{once:true});
-    img.addEventListener("error",run,{once:true});
+  imgs.forEach((img,i)=>{
+    const done=()=>{
+      measurements[i]=measure(img);
+      finish();
+    };
+    if(img.complete&&img.naturalWidth) done();
+    else img.addEventListener("load",done,{once:true});
+    img.addEventListener("error",done,{once:true});
   });
 }
 
